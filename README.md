@@ -1,11 +1,11 @@
-# Links Per Page
+# YOURLS Links Per Page
 
-A simple YOURLS plugin that lets you configure the number of links displayed per page from the admin interface. The **Links Per Page** plugin allows you to change the number of links displayed in the YOURLS admin dashboard. Instead of being locked to the default YOURLS value (15), you can update this number using a dedicated configuration page.
+A simple YOURLS plugin that lets you configure the number of links displayed per page from the YOURLS admin interface. Instead of being locked to the default YOURLS value (15), you can permanently update this number using a dedicated configuration page.
 
 ## Features
 
 - **Customizable links per page:** Set a custom number of links to display on each admin page.
-- **User-friendly configuration:** Update the number via an intuitive admin page.
+- **User-friendly configuration:** Update the number via an simple admin page without needing to dig inside PHP files.
 - **Input validation:** Only accepts numerical values between 1-999.
 - **Feedback messages:** Displays a green success message when updated or a red error message if something goes wrong.
 
