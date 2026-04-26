@@ -1,37 +1,54 @@
 # YOURLS Links Per Page
 
-A simple YOURLS plugin that lets you configure the number of links displayed per page from the YOURLS admin interface. Instead of being locked to the default YOURLS value (15), you can permanently update this number using a dedicated configuration page.
+A small [YOURLS](https://yourls.org/) plugin that lets you configure how many links the admin link table shows per page. Instead of being locked to YOURLS' default of 15 (or whatever the site option says), set the value you actually want from a dedicated settings page.
 
 ## Features
 
-- **Customizable links per page:** Set a custom number of links to display on each admin page.
-- **User-friendly configuration:** Update the number via an simple admin page without needing to dig inside PHP files.
-- **Input validation:** Only accepts numerical values between 1-999.
-- **Feedback messages:** Displays a green success message when updated or a red error message if something goes wrong.
+- **Configurable links per page**, from a clean settings page under *Manage Plugins → Links Per Page*.
+- **Range-validated input** — only accepts integers between 1 and 999. Bad values fall back to a safe default.
+- **CSRF-protected** — every submit is nonce-verified via `yourls_verify_nonce`.
+- **No database schema changes** — the value is stored as a single YOURLS option (`links_per_page`).
+- **Tested in CI** against PHP 8.4 + YOURLS 1.10, both with and without the [Sleeky-backend](https://github.com/Flynntes/Sleeky) admin theme active.
 
 ## Requirements
 
-- **YOURLS** (Version 1.9.x or later is recommended)
-- **PHP 7.4 or later** (tested with PHP 8.3)
+- **YOURLS** ≥ 1.9 (verified against 1.10)
+- **PHP** ≥ 8.1 (verified against 8.4)
+- A modern browser for the admin page.
 
 ## Installation
 
-  1. **Download or clone repository**
-  2. **Upload to your YOURLS:** Copy the plugin folder to your YOURLS plugins directory, typically located at ```/user/plugins/```.
-  3. **Activate plugin:** Log in to your YOURLS admin area, go to the Plugins page, and activate the **Links Per Page** plugin.
+```bash
+cd /path/to/yourls/user/plugins
+git clone https://github.com/toineenzo/YOURLS-Links-Per-Page.git Links-Per-Page
+```
+
+…or download the latest release ZIP from the [Releases page](https://github.com/toineenzo/YOURLS-Links-Per-Page/releases) and unzip into `user/plugins/`. The zip already contains a `Links-Per-Page/` folder, so the final path is `user/plugins/Links-Per-Page/`.
+
+Then open the YOURLS admin at `/admin/plugins.php` and click **Activate** on *Links Per Page*. A new sub-page shows up at *Manage Plugins → Links Per Page*.
 
 ## Usage
 
-  Once activated, the plugin adds a new configuration page in the YOURLS admin area. To update the number of links per page:
-  1. Navigate to the plugin’s configuration page: ```<YOURLS-SITE-DOMAIN>/admin/plugins.php?page=lpp_config```
-  2. Enter the desired number (only numerical values, between 1-999) in the input field.
-  3. Click **Save**.
-  4. A success message in green will be displayed below the form if the update was successful, or an error message in red if the update failed.
+1. Go to `/admin/plugins.php?page=links_per_page_settings` (or click *Manage Plugins → Links Per Page*).
+2. Type the number of links you want to see per page (1–999).
+3. Click **Save settings**. A green confirmation banner appears, the YOURLS link table on `/admin/index.php` immediately uses the new value.
 
-## Support
+The plugin hooks into the `admin_view_per_page` filter, so any other plugin or theme that respects that filter (Sleeky-backend included) will pick up the value.
 
-If you encounter any issues or have suggestions for improvements, [please open an issue on GitHub](https://github.com/toineenzo/YOURLS-Links-Per-Page/issues/new).
+## Tests
+
+There is a Playwright + Docker e2e suite under `tests/`. The CI workflow at `.github/workflows/release-test.yml` boots a YOURLS container on every push, mounts the plugin in, and runs the suite — both with and without Sleeky-backend installed.
+
+To run it locally:
+
+```bash
+cd tests
+npm install
+docker compose up -d
+npx playwright test
+docker compose down -v
+```
 
 ## License
 
-This plugin is open-sourced software licensed under the MIT License.
+MIT — see [LICENSE](LICENSE).

@@ -1,234 +1,184 @@
 <?php
+/*
+Plugin Name: Links Per Page
+Plugin URI: https://github.com/toineenzo/YOURLS-Links-Per-Page
+Description: Show a configurable number of links per page on the YOURLS admin link table, with a small settings page to update the value.
+Version: 1.2.0
+Author: Toine Rademacher (toineenzo)
+Author URI: https://github.com/toineenzo
+*/
+
+declare(strict_types=1);
+
+if (!defined('YOURLS_ABSPATH')) {
+    die();
+}
+
+const LPP_OPTION_NAME    = 'links_per_page';
+const LPP_DEFAULT_LINKS  = 50;
+const LPP_MIN_LINKS      = 1;
+const LPP_MAX_LINKS      = 999;
+const LPP_PAGE_SLUG      = 'links_per_page_settings';
+const LPP_NONCE_ACTION   = 'links_per_page_settings';
+
 /**
- * Plugin Name: Links Per Page
- * Plugin URI: https://github.com/toineenzo/YOURLS-Links-Per-Page
- * Description: Show a custom number of displayed links per page with a configurable admin page.
- * Version: 1.1
- * Author: Toine Rademacher (toineenzo)
- * Author URI: https://github.com/toineenzo
+ * Filter callback used by the admin link table to decide how many rows to
+ * render. Returning an integer keeps PHP 8.4 strict mode happy when YOURLS
+ * casts the filtered value back to int.
  */
-
-// Prevent direct access to this file
-if (!defined('YOURLS_ABSPATH')) die();
-
-class LinksPerPage
+function lpp_get_links_per_page(): int
 {
-  private const OPTION_NAME = 'links_per_page';
-  private const DEFAULT_LINKS = 50;
+    $value = (int) yourls_get_option(LPP_OPTION_NAME, LPP_DEFAULT_LINKS);
+    if ($value < LPP_MIN_LINKS) {
+        return LPP_DEFAULT_LINKS;
+    }
+    if ($value > LPP_MAX_LINKS) {
+        return LPP_MAX_LINKS;
+    }
+    return $value;
+}
 
-  public function __construct()
-  {
-    // Filter to change the number of links displayed per page
-    yourls_add_filter('admin_view_per_page', [$this, 'getCustomLinksPerPage']);
-    
-    // Admin page hooks
-    yourls_add_action('plugins_loaded', [$this, 'addAdminPage']);
-  }
+yourls_add_filter('admin_view_per_page', 'lpp_get_links_per_page');
 
-  /**
-   * Get the custom number of links per page
-   */
-  public function getCustomLinksPerPage()
-  {
-    return yourls_get_option(self::OPTION_NAME, self::DEFAULT_LINKS);
-  }
+/**
+ * Register the settings sub-page under Manage Plugins. Hooked late on
+ * `plugins_loaded` so YOURLS' admin menu picks the entry up.
+ */
+function lpp_register_admin_page(): void
+{
+    yourls_register_plugin_page(LPP_PAGE_SLUG, 'Links Per Page', 'lpp_render_admin_page');
+}
+yourls_add_action('plugins_loaded', 'lpp_register_admin_page');
 
-  /**
-   * Add admin page to YOURLS menu
-   */
-  public function addAdminPage(): void
-  {
-    yourls_register_plugin_page('links_per_page_settings', 'Links Per Page', [$this, 'displayAdminPage']);
-  }
-
-  /**
-   * Display admin settings page
-   */
-  public function displayAdminPage(): void
-  {
-    if (!yourls_is_admin()) die('Access denied');
-
-    // Initialize message
-    $message = '';
-    $messageType = 'success';
-
-    // Process form if submitted
-    if (isset($_POST['links_per_page'])) {
-      // Check nonce for security
-      if (isset($_POST['nonce'])) {
-        if (!yourls_verify_nonce('links_per_page_settings', $_POST['nonce'])) {
-          $message = 'Error: Invalid security token. Please try again.';
-          $messageType = 'error';
-        } else {
-          // Get and validate the links per page value
-          $linksPerPage = intval($_POST['links_per_page']);
-          
-          // Enforce minimum value
-          if ($linksPerPage < 1) {
-            $linksPerPage = self::DEFAULT_LINKS;
-            $message = 'Invalid value: Using default value of ' . self::DEFAULT_LINKS . ' links per page.';
-            $messageType = 'warning';
-          } else {
-            // Get current value for comparison
-            $currentValue = yourls_get_option(self::OPTION_NAME, self::DEFAULT_LINKS);
-            
-            // Only update if value has changed
-            if ($currentValue == $linksPerPage) {
-              $message = 'No changes made - value remains at ' . $linksPerPage . ' links per page.';
-              $messageType = 'info';
-            } else {
-              // Update the option
-              $updated = yourls_update_option(self::OPTION_NAME, $linksPerPage);
-              
-              if ($updated) {
-                $message = 'Links per page updated successfully to ' . $linksPerPage . '.';
-                $messageType = 'success';
-              } else {
-                $message = 'Error: Could not update links per page setting. Please try again.';
-                $messageType = 'error';
-              }
-            }
-          }
-        }
-      } else {
-        $message = 'Error: Missing security token. Please try again.';
-        $messageType = 'error';
-      }
+/**
+ * Handle the POST and render the small settings form.
+ */
+function lpp_render_admin_page(): void
+{
+    if (!yourls_is_admin()) {
+        die('Access denied');
     }
 
-    // Generate nonce for the form
-    $nonce = yourls_create_nonce('links_per_page_settings');
-    $currentValue = yourls_get_option(self::OPTION_NAME, self::DEFAULT_LINKS);
-?>
+    $message       = '';
+    $message_type  = 'success';
+
+    if (isset($_POST['links_per_page'])) {
+        $nonce = (string) ($_POST['nonce'] ?? '');
+        if ($nonce === '' || !yourls_verify_nonce(LPP_NONCE_ACTION, $nonce)) {
+            $message      = 'Invalid security token. Please reload the page and try again.';
+            $message_type = 'error';
+        } else {
+            $submitted = filter_input(
+                INPUT_POST,
+                'links_per_page',
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => LPP_MIN_LINKS, 'max_range' => LPP_MAX_LINKS]]
+            );
+
+            if ($submitted === null || $submitted === false) {
+                yourls_update_option(LPP_OPTION_NAME, LPP_DEFAULT_LINKS);
+                $message      = sprintf(
+                    'Invalid value — reset to the default of %d links per page.',
+                    LPP_DEFAULT_LINKS
+                );
+                $message_type = 'warning';
+            } else {
+                $current = (int) yourls_get_option(LPP_OPTION_NAME, LPP_DEFAULT_LINKS);
+                if ($current === $submitted) {
+                    $message      = sprintf('No change — value is still %d links per page.', $submitted);
+                    $message_type = 'info';
+                } elseif (yourls_update_option(LPP_OPTION_NAME, $submitted)) {
+                    $message      = sprintf('Saved — now showing %d links per page.', $submitted);
+                    $message_type = 'success';
+                } else {
+                    $message      = 'YOURLS rejected the update. Please try again.';
+                    $message_type = 'error';
+                }
+            }
+        }
+    }
+
+    $current_value = (int) yourls_get_option(LPP_OPTION_NAME, LPP_DEFAULT_LINKS);
+    $nonce_value   = yourls_create_nonce(LPP_NONCE_ACTION);
+    ?>
     <h2>Links Per Page Settings</h2>
 
-    <?php if (!empty($message)): ?>
-    <div class="notice <?php echo $messageType; ?>">
-      <p><?php echo $message; ?></p>
+    <?php if ($message !== ''): ?>
+    <div class="lpp-notice lpp-notice-<?php echo yourls_esc_attr($message_type); ?>" data-lpp-notice="<?php echo yourls_esc_attr($message_type); ?>">
+        <p><?php echo yourls_esc_html($message); ?></p>
     </div>
     <?php endif; ?>
 
-    <div class="notice info">
-      <p><strong>Note:</strong> This setting controls how many links are displayed per page in the admin interface.</p>
-      <p>The default value is <?php echo self::DEFAULT_LINKS; ?> links per page. Values less than 1 will be reset to the default.</p>
+    <div class="lpp-notice lpp-notice-info">
+        <p><strong>Note:</strong> This setting controls how many links are shown per page in the YOURLS admin link table.</p>
+        <p>Default is <?php echo (int) LPP_DEFAULT_LINKS; ?> links per page; valid range is <?php echo (int) LPP_MIN_LINKS; ?>&ndash;<?php echo (int) LPP_MAX_LINKS; ?>.</p>
     </div>
 
-    <form method="post">
-      <input type="hidden" name="nonce" value="<?php echo $nonce; ?>">
+    <form method="post" id="lpp-form">
+        <input type="hidden" name="nonce" value="<?php echo yourls_esc_attr($nonce_value); ?>">
 
-      <div class="settings-group">
-        <div class="settings-row">
-          <div class="settings-label">
-            <label for="links_per_page">Links per page:</label>
-          </div>
-          <div class="settings-input">
-            <input type="number" 
-                  id="links_per_page" 
-                  name="links_per_page" 
-                  value="<?php echo $currentValue; ?>" 
-                  min="1" 
-                  max="999" 
-                  step="1" 
-                  class="text">
-          </div>
+        <div class="lpp-group">
+            <div class="lpp-row">
+                <label for="links_per_page" class="lpp-label">Links per page</label>
+                <input
+                    type="number"
+                    id="links_per_page"
+                    name="links_per_page"
+                    value="<?php echo yourls_esc_attr((string) $current_value); ?>"
+                    min="<?php echo (int) LPP_MIN_LINKS; ?>"
+                    max="<?php echo (int) LPP_MAX_LINKS; ?>"
+                    step="1"
+                    class="lpp-input"
+                    required>
+            </div>
+            <p class="lpp-hint">Enter an integer between <?php echo (int) LPP_MIN_LINKS; ?> and <?php echo (int) LPP_MAX_LINKS; ?>.</p>
         </div>
 
-        <div class="settings-row">
-          <div class="settings-description">
-            <p>Enter a number between 1 and 999 to set how many links should be displayed per page in the admin interface.</p>
-          </div>
-        </div>
-      </div>
-
-      <p><input type="submit" value="Save Settings" class="button primary"></p>
+        <p>
+            <button type="submit" class="button primary lpp-save">Save settings</button>
+        </p>
     </form>
 
     <style>
-      .notice {
-        margin: 15px 0;
-        padding: 10px 15px;
-        border-radius: 5px;
-      }
-
-      .notice.info {
-        background-color: rgba(0, 128, 255, 0.1);
-        border-left: 4px solid #0080ff;
-      }
-
-      .notice.success {
-        background-color: rgba(0, 128, 0, 0.1);
-        border-left: 4px solid #008000;
-      }
-
-      .notice.warning {
-        background-color: rgba(255, 165, 0, 0.1);
-        border-left: 4px solid #ffa500;
-      }
-
-      .notice.error {
-        background-color: rgba(255, 0, 0, 0.1);
-        border-left: 4px solid #ff0000;
-      }
-
-      .settings-group {
-        margin: 20px 0;
-        padding: 15px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 5px;
-        max-width: 600px;
-      }
-
-      .settings-row {
-        margin-bottom: 15px;
-      }
-
-      .settings-row:last-child {
-        margin-bottom: 0;
-      }
-
-      .settings-label {
-        margin-bottom: 5px;
-      }
-
-      .settings-label label {
-        font-weight: bold;
-      }
-
-      .settings-input {
-        margin-bottom: 5px;
-      }
-
-      input.text {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        border-radius: 3px;
-        background: transparent;
-        color: inherit;
-        max-width: 200px;
-      }
-
-      .settings-description {
-        color: #666;
-        font-size: 0.9em;
-      }
-
-      .button.primary {
-        padding: 8px 16px;
-        cursor: pointer;
-      }
-
-      /* For responsive design */
-      @media (max-width: 768px) {
-        .settings-group {
-          padding: 10px;
+        #lpp-form { max-width: 600px; }
+        .lpp-notice {
+            margin: 15px 0;
+            padding: 10px 15px;
+            border-radius: 5px;
         }
-      }
-    </style>
-<?php
-  }
-}
+        .lpp-notice p { margin: 4px 0; }
+        .lpp-notice-info    { background: rgba(0, 128, 255, 0.1); border-left: 4px solid #0080ff; }
+        .lpp-notice-success { background: rgba(0, 128, 0, 0.1);   border-left: 4px solid #008000; }
+        .lpp-notice-warning { background: rgba(255, 165, 0, 0.1); border-left: 4px solid #ffa500; }
+        .lpp-notice-error   { background: rgba(255, 0, 0, 0.1);   border-left: 4px solid #ff0000; }
 
-// Initialize the plugin
-new LinksPerPage();
-?>
+        .lpp-group {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid rgba(128, 128, 128, 0.2);
+            border-radius: 5px;
+        }
+        .lpp-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .lpp-label { font-weight: 600; }
+        .lpp-hint  { color: rgba(0, 0, 0, 0.6); font-size: 0.9em; margin-top: 8px; }
+
+        .lpp-input {
+            padding: 8px 10px;
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 3px;
+            background: transparent;
+            color: inherit;
+            max-width: 200px;
+        }
+
+        .button.primary.lpp-save {
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+    </style>
+    <?php
+}
