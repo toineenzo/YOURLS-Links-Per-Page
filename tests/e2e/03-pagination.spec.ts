@@ -25,45 +25,43 @@ test.describe('Pagination respects the configured value', () => {
     await ctx.close();
   });
 
-  test('admin link table caps at 5 rows when the setting is 5', async ({
+  // Save a value via the plugin admin form, then read back the actual
+  // rows-per-page that YOURLS' admin link table is rendering. The table's
+  // tbody can contain non-data rows depending on theme, so we count <tr>
+  // elements that carry an id="id-..." (the data rows YOURLS emits per
+  // shortlink) — that selector is theme-independent.
+  async function savePerPageAndCountRows(
+    page: import('@playwright/test').Page,
+    value: number
+  ): Promise<number> {
+    await page.goto(ADMIN_PATH);
+    await page.locator('#links_per_page').fill(String(value));
+    await page.locator('button.lpp-save').click();
+    await page.waitForLoadState('networkidle');
+    // Either a success or no-change notice is fine — we just care about
+    // the option being persisted with the right value.
+    await expect(page.locator('#links_per_page')).toHaveValue(String(value));
+
+    await page.goto('/admin/index.php');
+    return page.locator('#main_table tbody tr[id^="id-"]').count();
+  }
+
+  test('admin link table is capped at 5 when the setting is 5', async ({
     page,
     errors,
   }) => {
-    // Save 5 via the plugin's admin page.
-    await page.goto(ADMIN_PATH);
-    await page.locator('#links_per_page').fill('5');
-    await page.locator('button.lpp-save').click();
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('[data-lpp-notice="success"]')).toContainText(
-      /5 links per page/i
-    );
-
-    // YOURLS' admin link table shows N rows where N is the filtered value.
-    await page.goto('/admin/index.php');
-    const rowCount = await page
-      .locator('#main_table tbody tr')
-      .count();
-    expect(rowCount).toBeLessThanOrEqual(5);
-    expect(rowCount).toBeGreaterThan(0);
-
+    const rowCount = await savePerPageAndCountRows(page, 5);
+    expect(rowCount, `Got ${rowCount} rows on /admin/index.php`).toBe(5);
     expect(errors.serverErrors).toEqual([]);
   });
 
-  test('raising the setting to 100 reveals every seeded shortlink', async ({
-    page,
-    errors,
-  }) => {
-    await page.goto(ADMIN_PATH);
-    await page.locator('#links_per_page').fill('100');
-    await page.locator('button.lpp-save').click();
-    await page.waitForLoadState('networkidle');
-
-    await page.goto('/admin/index.php');
-    const rowCount = await page.locator('#main_table tbody tr').count();
-    // We seeded TOTAL links; YOURLS may have other links from earlier specs,
-    // but we should at least see all of ours.
-    expect(rowCount).toBeGreaterThanOrEqual(TOTAL);
-
+  test('raising the setting reveals more rows', async ({ page, errors }) => {
+    const rowCountSmall = await savePerPageAndCountRows(page, 5);
+    const rowCountLarge = await savePerPageAndCountRows(page, 100);
+    expect(rowCountLarge).toBeGreaterThan(rowCountSmall);
+    // We seeded TOTAL links plus YOURLS' install seeds 3, so we should see
+    // at least TOTAL rows once the cap is well above that.
+    expect(rowCountLarge).toBeGreaterThanOrEqual(TOTAL);
     expect(errors.serverErrors).toEqual([]);
   });
 });
