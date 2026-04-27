@@ -5,7 +5,7 @@ Plugin URI: https://github.com/toineenzo/YOURLS-Links-Per-Page
 Description: Show a configurable number of links per page on the YOURLS admin link table, with a small settings page to update the value.
 Version: 1.2.2
 Author: Toine Rademacher (toineenzo)
-Author URI: https://github.com/toineenzo
+Author URI: https://toine.click
 */
 
 declare(strict_types=1);
