@@ -9,7 +9,7 @@ test.describe('Saving the links-per-page setting', () => {
     await page.goto(ADMIN_PATH);
 
     await page.locator('#links_per_page').fill('25');
-    await page.locator('button.lpp-save').click();
+    await page.locator('.lpp-save').click();
     await page.waitForLoadState('networkidle');
 
     // Success banner uses data-lpp-notice="success".
@@ -38,7 +38,7 @@ test.describe('Saving the links-per-page setting', () => {
       el.removeAttribute('max');
       el.value = '0';
     });
-    await page.locator('button.lpp-save').click();
+    await page.locator('.lpp-save').click();
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('[data-lpp-notice="warning"]')).toContainText(
@@ -57,7 +57,7 @@ test.describe('Saving the links-per-page setting', () => {
     await page.goto(ADMIN_PATH);
     await expect(page.locator('#links_per_page')).toHaveValue('50');
 
-    await page.locator('button.lpp-save').click();
+    await page.locator('.lpp-save').click();
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('[data-lpp-notice="info"]')).toContainText(

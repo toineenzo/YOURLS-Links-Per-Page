@@ -36,7 +36,7 @@ test.describe('Pagination respects the configured value', () => {
   ): Promise<number> {
     await page.goto(ADMIN_PATH);
     await page.locator('#links_per_page').fill(String(value));
-    await page.locator('button.lpp-save').click();
+    await page.locator('.lpp-save').click();
     await page.waitForLoadState('networkidle');
     // Either a success or no-change notice is fine — we just care about
     // the option being persisted with the right value.

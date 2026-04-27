@@ -21,7 +21,7 @@ test.describe('Plugin basics', () => {
     await page.goto(ADMIN_PATH);
     await expect(page.locator('#lpp-form')).toBeVisible();
     await expect(page.locator('#links_per_page')).toBeVisible();
-    await expect(page.locator('button.lpp-save')).toBeVisible();
+    await expect(page.locator('.lpp-save')).toBeVisible();
     expect(errors.serverErrors).toEqual([]);
   });
 });

@@ -3,7 +3,7 @@
 Plugin Name: Links Per Page
 Plugin URI: https://github.com/toineenzo/YOURLS-Links-Per-Page
 Description: Show a configurable number of links per page on the YOURLS admin link table, with a small settings page to update the value.
-Version: 1.2.1
+Version: 1.2.2
 Author: Toine Rademacher (toineenzo)
 Author URI: https://github.com/toineenzo
 */
@@ -14,6 +14,7 @@ if (!defined('YOURLS_ABSPATH')) {
     die();
 }
 
+const LPP_VERSION        = '1.2.2';
 const LPP_OPTION_NAME    = 'links_per_page';
 const LPP_DEFAULT_LINKS  = 50;
 const LPP_MIN_LINKS      = 1;
@@ -135,9 +136,14 @@ function lpp_render_admin_page(): void
         </div>
 
         <p>
-            <button type="submit" class="button primary lpp-save">Save settings</button>
+            <input type="submit" class="button lpp-save" value="Save settings">
         </p>
     </form>
+
+    <p class="lpp-footer">
+        <a href="https://github.com/toineenzo/YOURLS-Links-Per-Page" target="_blank">Links Per Page v<?php echo yourls_esc_html(LPP_VERSION); ?></a>
+        &middot; Made by <a href="https://toine.click/" target="_blank">Toine Rademacher (toineenzo)</a>
+    </p>
 
     <style>
         #lpp-form { max-width: 600px; }
@@ -164,7 +170,7 @@ function lpp_render_admin_page(): void
             gap: 6px;
         }
         .lpp-label { font-weight: 600; }
-        .lpp-hint  { color: rgba(0, 0, 0, 0.6); font-size: 0.9em; margin-top: 8px; }
+        .lpp-hint  { color: inherit; opacity: 0.7; font-size: 0.9em; margin-top: 8px; }
 
         .lpp-input {
             padding: 8px 10px;
@@ -175,10 +181,14 @@ function lpp_render_admin_page(): void
             max-width: 200px;
         }
 
-        .button.primary.lpp-save {
-            padding: 8px 16px;
-            cursor: pointer;
+        .lpp-footer {
+            max-width: 600px;
+            margin-top: 30px;
+            color: inherit;
+            opacity: 0.7;
+            font-size: 0.9em;
         }
+        .lpp-footer a { color: inherit; text-decoration: underline; }
     </style>
     <?php
 }
